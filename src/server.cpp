@@ -1,17 +1,34 @@
-// #include "server.h"
+#include "../include//server.h"
 
-#include <iostream>
-#include <unordered_map>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <sstream>
+// #include <iostream>
+// #include <unordered_map>
+// #include <sys/socket.h>
+// #include <netinet/in.h>
+// #include <unistd.h>
+// #include <sstream>
 
-#define PORT 6379
-#define BUFFER_SIZE 4096
+// #define PORT 6379
+// #define BUFFER_SIZE 4096
 
-//定义一个库
-std::unordered_map<std::string,std::string>  db;
+
+
+//线程安全SET/GET实现
+void SafeMap::set(const std::string &key,const std::string &value){
+    std::lock_guard<std::mutex> lock(map_mutex); //自动加锁
+    map[key]=value;
+
+}
+
+std::string SafeMap::get(const std::string &key){
+    std::lock_guard<std::mutex> lock(map_mutex);//自动加锁
+    auto it =map.find(key);
+    return (it!=map.end())? it->second:"(nil)";
+}
+
+SafeMap db;//全局数据库实例
+
+// 定义一个库
+// std::unordered_map<std::string,std::string>  db;
 
 
 // 处理客户请求
@@ -23,24 +40,26 @@ void process_command(int client_socket){
         if(bytes_read<=0){
             //客户端断开连接
             std::cout<<"客户端断开连接"<<std::endl;
-            break;
+            // break;
 
         }
-        
+
         std::stringstream ss(buffer);
         std::string cmd;
         ss >> cmd;
+        auto map_copy=db.getMap();
 
         if(cmd=="SET"){
             std::string key,value;
             ss>>key>>value;
-            db[key]=value;
+            // map_copy[key]=value;
+            db.set(key,value);
             send(client_socket,"OK\n",3,0);
        }else if(cmd=="GET"){
             std::string key;
             ss>>key;
-            auto it=db.find(key);
-            if(it!=db.end()){
+            auto it=map_copy.find(key);
+            if(it!=map_copy.end()){
                 // std::string response=it->second+'\n';
                 send(client_socket,(it->second+'\n').c_str(),(it->second).size()+1,0);
             }else{
@@ -53,34 +72,64 @@ void process_command(int client_socket){
     //清空缓冲区
     memset(buffer,0,BUFFER_SIZE);
 
-
-
     }
-    // read(client_socket,buffer,BUFFER_SIZE);
-   
-
-//     std::stringstream ss(buffer);
-//     std::string cmd;
-//     ss >> cmd;
-//     if(cmd=="SET"){
-//         std::string key,value;
-//         ss>>key>>value;
-//         db[key]=value;
-//         send(client_socket,"OK\n",3,0);
-//    }else if(cmd=="GET"){
-//         std::string key;
-//         ss>>key;
-//         auto it=db.find(key);
-//         if(it!=db.end()){
-//             // std::string response=it->second+'\n';
-//             send(client_socket,(it->second+'\n').c_str(),(it->second).size()+1,0);
-//         }else{
-//             send(client_socket,"nil\n",6,0);
-//         }
-//     }else{
-//             send(client_socket,"未知命令\n",13,0);
-// }
    close(client_socket);
+}
+
+
+
+
+
+//初始化全局线程库
+ThreadPool pool(4);
+
+//线程池构造函数
+ThreadPool::ThreadPool(size_t num_threads):stop(false){
+    for(int i=0;i<num_threads;i++){
+        threads.emplace_back([this]{
+            while(true){
+                int client_socket;
+                {
+                    //等待新任务或停止信号
+                    std::unique_lock<std::mutex> lock(queue_mutex);
+                    condition.wait(lock,[this]{
+                        return stop||!tasks.empty();
+                    });
+
+                    if(stop  && tasks.empty()) return ;//任务为空，就返回
+
+                    client_socket=tasks.front();
+                    tasks.pop();
+
+                }
+                process_command(client_socket);
+                // close(client_socket);
+            }
+
+        });
+    }
+
+}
+
+//添加任务到队列
+void ThreadPool::enqueue(int client_socket){
+    std::unique_lock<std::mutex>  lock(queue_mutex);
+    tasks.push(client_socket);
+
+    //通知下一个等待线程
+    condition.notify_one();
+}
+
+//析构函数
+ThreadPool::~ThreadPool(){
+    std::unique_lock<std::mutex> lock(queue_mutex);
+    stop=true;
+
+    //唤醒所有线程退出
+    condition.notify_all();
+    for(auto &thread:threads){
+        thread.join();//等待所有线程结束
+    }
 }
 
 
@@ -100,6 +149,7 @@ int main(){
     address.sin_addr.s_addr=INADDR_ANY;
     address.sin_port=htons(PORT);
 
+    //开始绑定
     if(bind(server_fd,(sockaddr*)&address,sizeof(address))<0){
         std::cerr<<"绑定失败了！"<<std::endl;
         return 1;
@@ -123,8 +173,9 @@ int main(){
         }else{
 
             //实现命令解析
-            process_command(clients_socket);
+            // process_command(clients_socket);
             // close(clients_socket);
+            pool.enqueue(clients_socket);
 
         }
 

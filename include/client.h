@@ -5,5 +5,5 @@
 #include <unistd.h>
 
 #define PORT 6379
-
+#define BUFFER_SIZE 4096
 

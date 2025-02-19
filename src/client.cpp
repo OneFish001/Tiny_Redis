@@ -1,10 +1,11 @@
-#include <iostream>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include "../include//client.h"
+// #include <iostream>
+// #include <sys/socket.h>
+// #include <netinet/in.h>
+// #include <arpa/inet.h>
+// #include <unistd.h>
 
-#define PORT 6379
+// #define PORT 6379
 
 int main(){
     int sock=socket(AF_INET,SOCK_STREAM,0);
@@ -38,7 +39,7 @@ int main(){
 
         //接受响应
       
-        char buffer[4096] ={0};
+        char buffer[BUFFER_SIZE] ={0};
         int len = read(sock,buffer,sizeof(buffer));
         
         if(len>0){
