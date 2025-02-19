@@ -8,7 +8,82 @@
 #include <sstream>
 
 #define PORT 6379
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 4096
+
+//定义一个库
+std::unordered_map<std::string,std::string>  db;
+
+
+// 处理客户请求
+void process_command(int client_socket){
+
+    char buffer[BUFFER_SIZE] ={0};
+    while(true){
+        int bytes_read=read(client_socket,buffer,BUFFER_SIZE);
+        if(bytes_read<=0){
+            //客户端断开连接
+            std::cout<<"客户端断开连接"<<std::endl;
+            break;
+
+        }
+        
+        std::stringstream ss(buffer);
+        std::string cmd;
+        ss >> cmd;
+
+        if(cmd=="SET"){
+            std::string key,value;
+            ss>>key>>value;
+            db[key]=value;
+            send(client_socket,"OK\n",3,0);
+       }else if(cmd=="GET"){
+            std::string key;
+            ss>>key;
+            auto it=db.find(key);
+            if(it!=db.end()){
+                // std::string response=it->second+'\n';
+                send(client_socket,(it->second+'\n').c_str(),(it->second).size()+1,0);
+            }else{
+                send(client_socket,"nil\n",6,0);
+            }
+        }else{
+                send(client_socket,"未知命令\n",13,0);
+    }
+     
+    //清空缓冲区
+    memset(buffer,0,BUFFER_SIZE);
+
+
+
+    }
+    // read(client_socket,buffer,BUFFER_SIZE);
+   
+
+//     std::stringstream ss(buffer);
+//     std::string cmd;
+//     ss >> cmd;
+//     if(cmd=="SET"){
+//         std::string key,value;
+//         ss>>key>>value;
+//         db[key]=value;
+//         send(client_socket,"OK\n",3,0);
+//    }else if(cmd=="GET"){
+//         std::string key;
+//         ss>>key;
+//         auto it=db.find(key);
+//         if(it!=db.end()){
+//             // std::string response=it->second+'\n';
+//             send(client_socket,(it->second+'\n').c_str(),(it->second).size()+1,0);
+//         }else{
+//             send(client_socket,"nil\n",6,0);
+//         }
+//     }else{
+//             send(client_socket,"未知命令\n",13,0);
+// }
+   close(client_socket);
+}
+
+
 
 int main(){
     //创建TCP套接字
@@ -44,43 +119,17 @@ int main(){
         int clients_socket=accept(server_fd,nullptr,nullptr);
         if(clients_socket<0){
             std::cerr<<"连接失败啦！"<<std::endl;
-            continue;
+            break;
         }else{
-             //实现命令解析
-             std::unordered_map<std::string,std::string>  db;
-             void process_command(int client_socket){
-                 char buffer[BUFFER_SIZE] ={0};
-                 read(client_socket,buffer,BUFFER_SIZE);
-        
 
-                 std::stringstream ss[buffer];
-                 std::string cmd;
-                 ss >> cmd;
-                 if(cmd=="SET"){
-                     std::string key,value;
-                     ss>>key>>value;
-                     db[key]=value;
-                     send(client_socket,"OK\n",3,0);
-                }else if(cmd=="GET"){
-                     std::string key;
-                     ss>>key;
-                     auto it=db.find(key);
-                     if(it!=db.end()){
-                         send(client_socket,(it->second+"\n").c_str(),it->second.size()+1,0);
-                     }else{
-                         send(client_socket,"nil\n",6,0);
-                     }
-                 }else{
-                         send(client_socket,"未知命令！\n",13,0);
-             }
-            }
-
+            //实现命令解析
             process_command(clients_socket);
-            close(clients_socket);
+            // close(clients_socket);
+
         }
 
         //暂时处理单个连接
-        break;
+        // break;
     }
     
    
