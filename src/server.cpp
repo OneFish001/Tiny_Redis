@@ -1,4 +1,5 @@
 #include "../include//server.h"
+#include "../include/AOF_logger.h"
 
 // #include <iostream>
 // #include <unordered_map>
@@ -25,7 +26,9 @@ std::string SafeMap::get(const std::string &key){
     return (it!=map.end())? it->second:"(nil)";
 }
 
-SafeMap db;//全局数据库实例
+// SafeMap db;//全局数据库实例
+LRUCache db(100);//实例化最大缓存
+AOFLogger aof_logger;//AOF日志实例
 
 // 定义一个库
 // std::unordered_map<std::string,std::string>  db;
@@ -52,19 +55,27 @@ void process_command(int client_socket){
         if(cmd=="SET"){
             std::string key,value;
             ss>>key>>value;
-            // map_copy[key]=value;
-            db.set(key,value);
+            // // map_copy[key]=value;
+            // db.set(key,value);
+            // send(client_socket,"OK\n",3,0);
+            db.put(key,value);
+            aof_logger.append("SET"+key+" "+value);
             send(client_socket,"OK\n",3,0);
+
        }else if(cmd=="GET"){
+            // std::string key;
+            // ss>>key;
+            // auto it=map_copy.find(key);
+            // if(it!=map_copy.end()){
+            //     // std::string response=it->second+'\n';
+            //     send(client_socket,(it->second+'\n').c_str(),(it->second).size()+1,0);
+            // }else{
+            //     send(client_socket,"nil\n",6,0);
+            // }
             std::string key;
             ss>>key;
-            auto it=map_copy.find(key);
-            if(it!=map_copy.end()){
-                // std::string response=it->second+'\n';
-                send(client_socket,(it->second+'\n').c_str(),(it->second).size()+1,0);
-            }else{
-                send(client_socket,"nil\n",6,0);
-            }
+            std::string value=db.get(key);
+            send(client_socket, value.c_str(), value.size(), 0);
         }else{
                 send(client_socket,"未知命令\n",13,0);
     }
