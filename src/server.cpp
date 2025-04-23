@@ -1,37 +1,9 @@
 #include "../include//server.h"
 #include "../include/AOF_logger.h"
 
-// #include <iostream>
-// #include <unordered_map>
-// #include <sys/socket.h>
-// #include <netinet/in.h>
-// #include <unistd.h>
-// #include <sstream>
 
-// #define PORT 6379
-// #define BUFFER_SIZE 4096
-
-
-
-//线程安全SET/GET实现
-void SafeMap::set(const std::string &key,const std::string &value){
-    std::lock_guard<std::mutex> lock(map_mutex); //自动加锁
-    map[key]=value;
-
-}
-
-std::string SafeMap::get(const std::string &key){
-    std::lock_guard<std::mutex> lock(map_mutex);//自动加锁
-    auto it =map.find(key);
-    return (it!=map.end())? it->second:"(nil)";
-}
-
-// SafeMap db;//全局数据库实例
 LRUCache db(100);//实例化最大缓存
-AOFLogger aof_logger;//AOF日志实例
-
-// 定义一个库
-// std::unordered_map<std::string,std::string>  db;
+AOFLogger aof_logger("appendonly.aof");//AOF日志实例
 
 
 // 处理客户请求
@@ -41,37 +13,23 @@ void process_command(int client_socket){
     while(true){
         int bytes_read=read(client_socket,buffer,BUFFER_SIZE);
         if(bytes_read<=0){
-            //客户端断开连接
             std::cout<<"客户端断开连接"<<std::endl;
-            // break;
-
         }
 
         std::stringstream ss(buffer);
         std::string cmd;
         ss >> cmd;
-        auto map_copy=db.getMap();
 
         if(cmd=="SET"){
             std::string key,value;
             ss>>key>>value;
-            // // map_copy[key]=value;
-            // db.set(key,value);
-            // send(client_socket,"OK\n",3,0);
+            
             db.put(key,value);
-            aof_logger.append("SET"+key+" "+value);
+            aof_logger.append(std::string("SET")+" "+key+" "+value);
+            std::cout<<"SET"<<key<<" "<<value<<std::endl;
             send(client_socket,"OK\n",3,0);
 
        }else if(cmd=="GET"){
-            // std::string key;
-            // ss>>key;
-            // auto it=map_copy.find(key);
-            // if(it!=map_copy.end()){
-            //     // std::string response=it->second+'\n';
-            //     send(client_socket,(it->second+'\n').c_str(),(it->second).size()+1,0);
-            // }else{
-            //     send(client_socket,"nil\n",6,0);
-            // }
             std::string key;
             ss>>key;
             std::string value=db.get(key);
@@ -97,7 +55,7 @@ ThreadPool pool(4);
 //线程池构造函数
 ThreadPool::ThreadPool(size_t num_threads):stop(false){
     for(int i=0;i<num_threads;i++){
-        threads.emplace_back([this]{
+        threads.__emplace_back([this]{
             while(true){
                 int client_socket;
                 {
@@ -107,14 +65,13 @@ ThreadPool::ThreadPool(size_t num_threads):stop(false){
                         return stop||!tasks.empty();
                     });
 
-                    if(stop  && tasks.empty()) return ;//任务为空，就返回
+                    if( stop && tasks.empty()) return ;//任务为空，就返回
 
                     client_socket=tasks.front();
                     tasks.pop();
 
                 }
                 process_command(client_socket);
-                // close(client_socket);
             }
 
         });
@@ -183,15 +140,10 @@ int main(){
             break;
         }else{
 
-            //实现命令解析
-            // process_command(clients_socket);
-            // close(clients_socket);
             pool.enqueue(clients_socket);
 
         }
 
-        //暂时处理单个连接
-        // break;
     }
     
    

@@ -8,8 +8,11 @@
 
 #include <mutex>
 #include <queue>
+#include <list>
+
 #include <thread>
 #include <condition_variable>
+
 
 #define PORT 6379
 #define BUFFER_SIZE 4096
@@ -33,23 +36,7 @@ class ThreadPool{
 
 extern ThreadPool pool;//全局线程池实例
 
-//线程安全的哈希表包装类
-class SafeMap{
-    public:
-        void set(const std::string &key,const std::string &value);
-        std::string get(const std::string &key);
-        std::unordered_map<std::string,std::string> getMap(){
-            std::lock_guard<std::mutex> lock(map_mutex);
-            return map ;
-        }
-    
-    private:
-        std::unordered_map<std::string,std::string>  map;
-        std::mutex map_mutex;//保护哈希表的互斥锁
 
-};
-
-extern SafeMap db;//全局线程安全数据库
 
 // LRU缓存类（线程安全）
 class LRUCache {
@@ -81,7 +68,7 @@ class LRUCache {
             std::lock_guard<std::mutex> lock(mutex);
             auto it = cache_map.find(key);
             if (it == cache_map.end()) {
-                return "(nil)";
+                return "nil";
             }
             
             // 移到链表头部表示最近使用

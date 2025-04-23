@@ -1,0 +1,4 @@
+/Users/apple/Projects/work/Tiny_Redis/build/CMakeFiles/server.dir
+/Users/apple/Projects/work/Tiny_Redis/build/CMakeFiles/client.dir
+/Users/apple/Projects/work/Tiny_Redis/build/CMakeFiles/edit_cache.dir
+/Users/apple/Projects/work/Tiny_Redis/build/CMakeFiles/rebuild_cache.dir

@@ -1,11 +1,5 @@
 #include "../include//client.h"
-// #include <iostream>
-// #include <sys/socket.h>
-// #include <netinet/in.h>
-// #include <arpa/inet.h>
-// #include <unistd.h>
 
-// #define PORT 6379
 
 int main(){
     int sock=socket(AF_INET,SOCK_STREAM,0);

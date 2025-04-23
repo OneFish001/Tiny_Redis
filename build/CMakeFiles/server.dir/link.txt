@@ -1,0 +1,1 @@
+/usr/bin/clang++ -I/usr/local/boost_1_82_0/include -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk -mmacosx-version-min=12.7 -Wl,-search_paths_first -Wl,-headerpad_max_install_names -L/usr/local/boost_1_82_0/lib -L/usr/local/llvm/lib CMakeFiles/server.dir/src/server.cpp.o CMakeFiles/server.dir/src/AOF_logger.cpp.o -o server
